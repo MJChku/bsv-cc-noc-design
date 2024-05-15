@@ -46,18 +46,22 @@ module mkNode#(Bit#(2) nth_node)(NodeInterface);
     MessageFifo#(6) parentOutMsgQueue <- mkMessageFifo;
     Reg#(Bit#(32)) count <- mkReg(0);
 
+    Reg#(Bit#(1)) trackIMem <- mkReg(0);
+    Reg#(Bit#(1)) trackL2Mem <- mkReg(0);
+
     mkProtocolProcessor(nth_node, parentInMsgQueue, parentOutMsgQueue, cacheL2, count);
    
-
     // basically the compiler is not smart enough to explore different scheduling, so I have to specify this
     (*descending_urgency="cacheD.handleWaitFill, cacheinterface.sendReqData"*)
     (*descending_urgency="cacheD.afterCAUInMsgReq, cacheinterface.sendReqData"*)
     (*descending_urgency="cacheI.handleWaitFill, cacheinterface.sendReqInstr"*)
     (*descending_urgency="cacheI.afterCAUInMsgReq, cacheinterface.sendReqInstr"*)
-
     (*descending_urgency="handleICacheIn, handleICacheOut, getMemResp, sendL2ToMem"*)
+
+    
     /*-----handle non coherent I cache-----*/
-    rule handleICacheIn;
+    rule handleICacheIn if(trackIMem == 1 && trackL2Mem == 0);
+        // childIOutMsgQueue.deq;
         let resp_ <- mainMem.get();
         if(debug) $display("<handleICacheIn> ICache Resp %d", count);
         childIInMsgQueue.enq_resp(
@@ -69,12 +73,14 @@ module mkNode#(Bit#(2) nth_node)(NodeInterface);
                 data: tagged Valid unpack(resp_)
             }
         );
+        trackIMem <= 0;
     endrule
 
-    rule handleICacheOut if(childIOutMsgQueue.notEmpty);
+    rule handleICacheOut if(childIOutMsgQueue.notEmpty && trackIMem == 0 && trackL2Mem == 0);
         let first = childIOutMsgQueue.first; childIOutMsgQueue.deq;
+        if(debug) $display("<handleICacheOut> ICache Req %d", count);
         if (first matches tagged Req .m) begin
-            if(debug) $display("<handleICacheOut> ICache Req %d", count);
+            trackIMem <= 1;
             MainMemReq req = MainMemReq{
                 write: 0,
                 addr: m.addr,
@@ -83,7 +89,7 @@ module mkNode#(Bit#(2) nth_node)(NodeInterface);
             mainMem.put(req);
         end
         else if (first matches tagged Resp .m) begin
-            $display("<handleICacheOut> Error: should never happen");
+            if(debug) $display("<handleICacheOut> Error: should never happen");
         end
     endrule
     /*-----handle non coherent I cache end---*/
@@ -94,15 +100,20 @@ module mkNode#(Bit#(2) nth_node)(NodeInterface);
     endrule
 
     /* -------- L2 to Mem --------- */     
-    rule sendL2ToMem;
+    rule sendL2ToMem if(trackIMem == 0 && trackL2Mem == 0);
+        if(debug) $display(" send L2 to Mem");
         let req <- cacheL2.getToMem();
         mainMem.put(req);
+        trackL2Mem <= 1;
     endrule
 
-    rule getMemResp;
+    rule getMemResp if(trackIMem == 0 && trackL2Mem == 1);
+        if(debug) $display(" get Mem resp to L2");
         let resp <- mainMem.get();
         cacheL2.putFromMem(resp);
+        trackL2Mem <= 0;
     endrule
+
     /* -------- L2 to Mem End---- */
 
     // router need to call these methods
@@ -122,7 +133,7 @@ module mkNode#(Bit#(2) nth_node)(NodeInterface);
     endmethod
 
     method Bool hasFromChild();
-        return parentOutMsgQueue.notEmpty;
+        return childDOutMsgQueue.notEmpty;
     endmethod
 
     method ActionValue#(CacheMemMessage) fromParent();
@@ -142,7 +153,6 @@ module mkNode#(Bit#(2) nth_node)(NodeInterface);
         return childDOutMsgQueue.first;
     endmethod
 
-
     interface cacheinterface = 
         interface CacheInterface
             method Action sendReqData(CacheReq req);
@@ -153,7 +163,7 @@ module mkNode#(Bit#(2) nth_node)(NodeInterface);
                 return resp;
             endmethod
             method Action sendReqInstr(CacheReq req);
-                $display("Send instr Req     %d", count ,fshow(req));
+                if(debug) $display("Send instr Req     %d", count ,fshow(req));
                 cacheI.putFromProc(req);
             endmethod
             method ActionValue#(Word) getRespInstr();
@@ -166,10 +176,18 @@ module mkNode#(Bit#(2) nth_node)(NodeInterface);
 endmodule
 
 function Bit#(2) getDestination(CacheMemMessage msg);
-    if( msg matches tagged Req .m) 
-        return m.core;
+    // if it's a message from a child, then it has no idea where to go
+    // if it's a message from a parent, it knows where to go
+    if( msg matches tagged Req .m)
+        if (m.fromChild == 1)
+            return {0, m.addr[7:7]};
+        else
+            return m.core; 
     else if (msg matches tagged Resp .m)
-        return m.core;
+        if (m.fromChild == 1)
+            return {0, m.addr[7:7]};
+        else
+            return m.core; 
     else
         return 0;
 endfunction
@@ -177,10 +195,12 @@ endfunction
 module mkRouterNode(Bit#(2) nth_node, Router router, NodeInterface node, Empty ifc);
     Reg#(Maybe#(CacheMemMessage)) inflight_msg <- mkReg(tagged Invalid);
     Reg#(Bit#(6)) msg_chunk_cnt <- mkReg(0);
+    
+    Bool debug = True;
 
     rule sendMsg if(inflight_msg matches tagged Valid .msg);
         // ensure the flit size is larger than msg  
-        $display("put on local node %d", getDestination(msg));
+        if(debug) $display("put on local node %d", getDestination(msg));
         router.dataLinks[4].putFlit(
             Flit{
                 nextDir: ?,
@@ -191,7 +211,7 @@ module mkRouterNode(Bit#(2) nth_node, Router router, NodeInterface node, Empty i
     endrule
 
     rule issueMsgFromLocalNode if (node.hasFromParent() || node.hasFromChild());
-        $display("issueMsgFromLocalNode");
+        if(debug) $display("issueMsgFromLocalNode");
         CacheMemMessage msg = ?;
         if (node.hasFromParent())
             msg <- node.fromParent();
@@ -201,7 +221,7 @@ module mkRouterNode(Bit#(2) nth_node, Router router, NodeInterface node, Empty i
     endrule
 
     rule putMsgFromRemoteNode if (router.dataLinks[4].hasFlit());
-        $display("putMsgFromRemoteNode");
+        if(debug) $display("putMsgFromRemoteNode");
         let flit <- router.dataLinks[4].getFlit();
         CacheMemMessage msg = unpack(flit.flitData[544:0]);
         if(msg matches tagged Req .m) begin
@@ -217,6 +237,4 @@ module mkRouterNode(Bit#(2) nth_node, Router router, NodeInterface node, Empty i
                 node.toChild(msg);
         end
     endrule
-
-
 endmodule

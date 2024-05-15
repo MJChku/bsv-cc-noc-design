@@ -59,7 +59,7 @@ module mkCache32(
     MessageFifo#(6) outMsgQueue,
     Cache32 ifc);
 
-    let debug = True;
+    let debug = False;
     // tag is 19bits, index is 7 bits
     CAU#(7, 19) cau <- mkCAU;
 

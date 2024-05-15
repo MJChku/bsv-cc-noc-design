@@ -30,7 +30,7 @@ module mkProtocolProcessor(
    
     // Vector#(TMul#(128, valueOf(NUM_CORES)), Reg#(ChState)) childState <- replicateM(mkRegU);
     // Vector#(TMul#(128, valueOf(NUM_CORES)), Reg#(CacheTag)) childTag <- replicateM(mkRegU);
-
+    Bool debug = True;
     ChState init_ch = newChState();
     Vector#(128, Reg#(ChState)) childState <- replicateM(mkReg(init_ch));
     Vector#(128, Reg#(CacheTag)) childTag <- replicateM(mkRegU);
@@ -49,7 +49,7 @@ module mkProtocolProcessor(
 
     rule processInMsgReqReceiveL2 if(inMsgQueue.first matches tagged Req .m &&& ppReqState == WaitL2);
         // request to upgrade
-        $display("<processInMsgReqReceiveL2> get resp from L2 %d, my node is %d, cnt %d", m.core, nth_node, count);
+        if(debug) $display("<processInMsgReqReceiveL2> get resp from L2 %d, my node is %d, cnt %d", m.core, nth_node, count);
         let core = m.core;
         // Maybe#(Bit#(7)) idx_ = tagged Valid 0; //getDirectoryIdx(m.addr, nth_node);
         Maybe#(Bit#(7)) idx_ = getDirectoryIdx(m.addr, nth_node);
@@ -77,7 +77,7 @@ module mkProtocolProcessor(
                 let chs_copy = chs;
                 chs_copy.state[core] = m.state;
                 childState[idx] <= chs_copy;
-                $display("<processInMsgReqReceiveL2> send out resp %d, my node is %d, cnt %d", m.core, nth_node, count);
+                if(debug) $display("<processInMsgReqReceiveL2> send out resp %d, my node is %d, cnt %d", m.core, nth_node, count);
 
                 inMsgQueue.deq;
                 outMsgQueue.enq_resp(
@@ -96,7 +96,7 @@ module mkProtocolProcessor(
         end
         else begin
             // No one has the cache
-            $display("<processInMsgReqReceiveL2> No one has the cacheline");
+            if(debug) $display("<processInMsgReqReceiveL2> No one has the cacheline");
             let resp <- cacheL2.getToProc();
             let chs_copy = newChState();
             chs_copy.state[core] = m.state;
@@ -120,7 +120,7 @@ module mkProtocolProcessor(
     rule processInMsgReqWithOnlyL2Cache if(inMsgQueue.first matches tagged Req .m &&& ppReqState == SendL2 );
         // request to upgrade
         let core = m.core;
-        $display("<processInMsgReqWithOnlyL2Cache> send req to L2 %d, my node is %d; cnt %d", m.core, nth_node, count);
+        if(debug) $display("<processInMsgReqWithOnlyL2Cache> send req to L2 %d, my node is %d; cnt %d", m.core, nth_node, count);
         // let idx = getDirectoryIdx(m.addr, nth_node);
         // let maybe_s = getDirectoryState(m.addr, nth_node, childTag, childState);
 
@@ -156,13 +156,14 @@ module mkProtocolProcessor(
         end 
         else begin
             // invalid directory entry
-            $display("<processInMsgReqWithOnlyL2Cache> No one has the cacheline and fetch from L2 %d", nth_node);
+            if(debug) $display("<processInMsgReqWithOnlyL2Cache> No one has the cacheline and fetch from L2 %d", nth_node);
             cacheL2.putFromProc(MainMemReq{
                     write: 0,
                     addr: m.addr,
                     data: ?
                 });
         end
+        if(debug) $display("<processInMsgReqWithOnlyL2Cache> final states ", fshow(req_state));
         ppReqState <= req_state;
 
     endrule
@@ -170,7 +171,7 @@ module mkProtocolProcessor(
     rule processInMsgReqAndSendOutMsg if (inMsgQueue.first matches tagged Req .m &&& ppReqState == InvalidateOthers );
         // request to upgrade
         let core = m.core;
-        $display("<processInMsgReqAndSendOutMsg> received msg from %d, my node is %d; cnt %d", m.core, nth_node, count);
+        if(debug) $display("<processInMsgReqAndSendOutMsg> received msg from %d, my node is %d; cnt %d", m.core, nth_node, count);
         // if you received a state update, you must own the directory for this cacheline
         // update the state in the cache
         // let idx_ = getDirectoryIdx(m.addr, nth_node);
@@ -191,7 +192,7 @@ module mkProtocolProcessor(
         PPReqState req_state = SendL2;
         if (maybe_s matches tagged Valid .chs) begin
             if (m.state > I) 
-                $display("Error: should never happen: m.state > I");
+                if(debug) $display("Error: should never happen: m.state > I");
             if ( m.state == M && chs.state[core] < M ) begin
                 Bool send_msg_for_dwn_M = False;
                 Bit#(2) m_id = 0;
@@ -267,7 +268,7 @@ module mkProtocolProcessor(
     rule processInMsgResp if (inMsgQueue.first matches tagged Resp .m);
         // downgrade response
         let core = m.core;
-        $display("<processInMsgResp> received resp from %d, my node is ", m.core, nth_node);
+        if(debug) $display("<processInMsgResp> received resp from %d, my node is ", m.core, nth_node);
         // let idx_ = getDirectoryIdx(m.addr, nth_node);
         // Maybe#(Bit#(7)) idx_ = tagged Valid 0;
         Maybe#(Bit#(7)) idx_ = getDirectoryIdx(m.addr, nth_node);
@@ -286,7 +287,7 @@ module mkProtocolProcessor(
         if (maybe_s matches tagged Valid .chs) begin
             if (chs.state[core] <= m.state) begin 
                 // its not dwngraded
-                $display("response not dwngraded");
+                if(debug) $display("response not dwngraded");
                 inMsgQueue.deq;
             end 
             else if (chs.state[core] == M && m.state < M) begin 
@@ -316,7 +317,7 @@ module mkProtocolProcessor(
             end 
         end // end of if 
         else begin
-            $display("<processInMsgResp> Error: should never happen");
+            if(debug) $display("<processInMsgResp> Error: should never happen");
         end
     endrule
     /* -------- process InMsgResp End---- */

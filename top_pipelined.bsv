@@ -93,7 +93,7 @@ module mktop_pipelined(Empty);
     rule routerGet;
         // W -> E  
         if(router1.dataLinks[3].hasFlit()) begin
-            $display("Router get flit outer1.dataLinks[3]")
+            $display("Router get flit outer1.dataLinks[3]");
             let flit <- router1.dataLinks[3].getFlit();
             r1_link3 <= tagged Valid flit;
             // router0.dataLinks[1].putFlit(flit);
@@ -101,7 +101,7 @@ module mktop_pipelined(Empty);
         
         // // E -> W  
         if(router0.dataLinks[1].hasFlit()) begin
-            $display("Router get flit router0.dataLinks[1]")
+            $display("Router get flit router0.dataLinks[1]");
             let flit <- router0.dataLinks[1].getFlit();
             r0_link1 <= tagged Valid flit;
             // router1.dataLinks[3].putFlit(flit);
@@ -157,7 +157,7 @@ module mktop_pipelined(Empty);
     FIFO#(Mem) ireq <- mkFIFO;
     FIFO#(Mem) dreq <- mkFIFO;
     FIFO#(Mem) mmioreq <- mkFIFO;
-    let debug = True;
+    let debug = False;
     Reg#(Bit#(32)) cycle_count <- mkReg(0);
 
     rule tic;
