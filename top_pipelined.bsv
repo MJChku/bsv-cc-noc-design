@@ -14,6 +14,7 @@ import MessageTypes::*;
 
 module mktop_pipelined(Empty);
     // Instantiate the dual ported memory
+    let debug = False;
     BRAM_Configure cfg = defaultValue();
     cfg.loadFormat = tagged Hex "mem.vmh";
     BRAM2PortBE#(Bit#(30), Word, 4) bram <- mkBRAM2ServerBE(cfg);
@@ -48,13 +49,13 @@ module mktop_pipelined(Empty);
     rule routerPut;
         if(r1_link3 matches tagged Valid .flit) begin 
             router0.dataLinks[1].putFlit(flit);
-            $display("router0.dataLinks[1].putFlit(flit)");
+            if(debug) $display("router0.dataLinks[1].putFlit(flit)");
             r1_link3 <= tagged Invalid;
         end 
 
         if(r0_link1 matches tagged Valid .flit) begin 
             router1.dataLinks[3].putFlit(flit);
-            $display("router1.dataLinks[3].putFlit(flit)");
+            if(debug) $display("router1.dataLinks[3].putFlit(flit)");
             r0_link1 <= tagged Invalid;
         end 
         /*
@@ -93,7 +94,7 @@ module mktop_pipelined(Empty);
     rule routerGet;
         // W -> E  
         if(router1.dataLinks[3].hasFlit()) begin
-            $display("Router get flit outer1.dataLinks[3]");
+            if(debug) $display("Router get flit outer1.dataLinks[3]");
             let flit <- router1.dataLinks[3].getFlit();
             r1_link3 <= tagged Valid flit;
             // router0.dataLinks[1].putFlit(flit);
@@ -101,7 +102,7 @@ module mktop_pipelined(Empty);
         
         // // E -> W  
         if(router0.dataLinks[1].hasFlit()) begin
-            $display("Router get flit router0.dataLinks[1]");
+            if(debug) $display("Router get flit router0.dataLinks[1]");
             let flit <- router0.dataLinks[1].getFlit();
             r0_link1 <= tagged Valid flit;
             // router1.dataLinks[3].putFlit(flit);
@@ -157,7 +158,6 @@ module mktop_pipelined(Empty);
     FIFO#(Mem) ireq <- mkFIFO;
     FIFO#(Mem) dreq <- mkFIFO;
     FIFO#(Mem) mmioreq <- mkFIFO;
-    let debug = False;
     Reg#(Bit#(32)) cycle_count <- mkReg(0);
 
     rule tic;

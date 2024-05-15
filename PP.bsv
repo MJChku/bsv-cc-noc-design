@@ -30,7 +30,7 @@ module mkProtocolProcessor(
    
     // Vector#(TMul#(128, valueOf(NUM_CORES)), Reg#(ChState)) childState <- replicateM(mkRegU);
     // Vector#(TMul#(128, valueOf(NUM_CORES)), Reg#(CacheTag)) childTag <- replicateM(mkRegU);
-    Bool debug = True;
+    Bool debug = False;
     ChState init_ch = newChState();
     Vector#(128, Reg#(ChState)) childState <- replicateM(mkReg(init_ch));
     Vector#(128, Reg#(CacheTag)) childTag <- replicateM(mkRegU);

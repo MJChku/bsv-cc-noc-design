@@ -221,7 +221,7 @@ module mkCache32(
         if(debug) $display("handleWaitFill");
         LineData resp = ?;
         if (m.data matches tagged Valid .cl) begin
-            $display("inMsgQueue resp data ", fshow(cl));
+            if(debug) $display("inMsgQueue resp data ", fshow(cl));
             resp = cl;
         end
         inMsgQueue.deq;

@@ -25,7 +25,7 @@ endinterface
 module mkNode#(Bit#(2) nth_node)(NodeInterface);
     // need to connect Procesor, L1, and L2 cache
     // There should be one more NoC connected to MainMem
-    Bool debug = True;
+    Bool debug = False;
     // to processor and from processor
     MainMem mainMem <- mkMainMem(); 
 
@@ -196,7 +196,7 @@ module mkRouterNode(Bit#(2) nth_node, Router router, NodeInterface node, Empty i
     Reg#(Maybe#(CacheMemMessage)) inflight_msg <- mkReg(tagged Invalid);
     Reg#(Bit#(6)) msg_chunk_cnt <- mkReg(0);
     
-    Bool debug = True;
+    Bool debug = False;
 
     rule sendMsg if(inflight_msg matches tagged Valid .msg);
         // ensure the flit size is larger than msg  
