@@ -85,8 +85,8 @@ Bit#(5) op5_SYSTEM  = 5'b11100;
 
 // add CSR
 typedef Bit#(12) CsrIndx;
-CsrIndx csrInstret = 12'hb02;
-CsrIndx csrCycle   = 12'hb00;
+CsrIndx csrInstret = 12'hc02;
+CsrIndx csrCycle   = 12'hc00;
 CsrIndx csrMhartid = 12'hf14;
 
 // Func 3 Fields

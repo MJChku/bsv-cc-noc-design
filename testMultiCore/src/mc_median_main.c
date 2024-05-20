@@ -99,34 +99,6 @@ void median_second_half( int n, int input[], volatile int results[] )
   results[n-1] = 0;
 }
 
-
-void printInt(int num) {
-    if (num == 0) {
-        putchar('0');
-        return;
-    }
-
-    if (num < 0) {
-        putchar('-');
-        num = -num; // Convert to positive to handle the rest
-    }
-
-    int rev = 0; // Reverse of the number to print digits from least significant to most
-    int last_digit;
-
-    // while (num > 0) {
-    //     last_digit = num / 10;
-    //     rev = rev * 10 + last_digit;
-    //     num = num / 10;
-    // }
-
-    // while (rev > 0) {
-    //     last_digit = rev % 10;
-    //     putchar('0' + last_digit);
-    //     rev /= 10;
-    // }
-}
-
 int main0( )
 {
 
@@ -187,9 +159,12 @@ int main1( )
 int main(int argc, char *argv[]) {
 	int core = getCoreId();
     if( core == 0 ) {
-        return main0();
+        main0();
+        t0_done = 1;
     } else if(core == 1) {
-        return main1();
+        main1();
+        t1_done = 1;
     }
+    while( !(t0_done && t1_done)){};
 	return 0;
 }

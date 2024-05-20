@@ -1,3 +1,5 @@
+#include "util.h"
+
 static volatile int input_data[8] = {0,1,2,3,4,5,6,7};
 static volatile int flag = 0;
 static volatile int acc_thread0 = 0;
@@ -38,10 +40,15 @@ int program_thread1(){
 }
 
 int main(int a){
-    if (a == 0) {
-        return program_thread0();
+    if (getCoreId() == 0) {
+        program_thread0();
+        t0_done = 1;
     } else
     {
-        return program_thread1();
+        program_thread1();
+        t1_done = 1;
     }
+    while (!(t0_done && t1_done)){
+    };
+    return 0;
 }

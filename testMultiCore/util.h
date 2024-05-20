@@ -32,35 +32,6 @@
 
 #else // HOST_DEBUG = 0
 
-	static void printChar(char c) {
-	    putchar(c);
-	}
-
-	static void printStr(const char *str) {
-		while (*str) {
-			putchar(*str++);
-		}
-	}
-
-
-	static uint32_t getInsts() {
-		uint32_t inst_num = 0;
-		asm volatile ("csrr %0, instret" : "=r"(inst_num) : );
-		return inst_num;
-	}
-
-	static uint32_t getCycle() {
-		uint32_t cyc_num = 0;
-		asm volatile ("csrr %0, cycle" : "=r"(cyc_num) : );
-		return cyc_num;
-	}
-
-	static uint32_t getCoreId() {
-		uint32_t id = 0;
-		asm volatile ("csrr %0, mhartid" : "=r"(id) : );
-		return id;
-	}
-
 #endif // HOST_DEBUG
 
 #define CACHE_LINE_SIZE 64
@@ -72,9 +43,9 @@
 #define FENCE()
 #endif
 
-void printInt(int c);
-void printChar(char c);
-void printStr(const char *x);
+// void printInt(int c);
+// void printChar(char c);
+// void printStr(const char *x);
 
 static int verify(int n, const volatile int* test, const int* verify) {
   // correct: return 0
@@ -87,6 +58,69 @@ static int verify(int n, const volatile int* test, const int* verify) {
     if (t != v) return i+1;
   }
   return 0;
+}
+
+static volatile int t0_done = 0;
+static volatile int t1_done = 0;
+
+static void printChar(char c) {
+	putchar(c);
+}
+
+static void printStr(const char *str) {
+	while (*str) {
+		putchar(*str++);
+	}
+}
+
+
+static void printInt(int num) {
+	putchar('0'); putchar('x');
+    if (num == 0) {
+        putchar('0');
+        return;
+    }
+
+    if (num < 0) {
+        putchar('-');
+        num = -num; // Convert to positive to handle the rest
+    }
+
+    // Determine the size of an integer in bits and prepare to extract hexadecimal digits
+    int numBits = sizeof(num) * 8;
+    int shiftAmount = numBits - 4; // Start with the most significant hex digit
+    int started = 0; // This flag will be used to avoid printing leading zeros
+
+    while (shiftAmount >= 0) {
+        int digit = (num >> shiftAmount) & 0xF; // Extract the current hex digit
+        if (digit != 0 || started) {
+            if (digit < 10) {
+                putchar('0' + digit);
+            } else {
+                putchar('A' + (digit - 10));
+            }
+            started = 1; // We have started printing digits
+        }
+        shiftAmount -= 4; // Move to the next digit
+    }
+}
+
+static uint32_t getInsts() {
+	uint32_t inst_num = 0;
+	// asm volatile ("csrr %0, instret" : "=r"(inst_num) : );
+	return inst_num;
+}
+
+static uint32_t getCycle() {
+	uint32_t cyc_num = 0;
+	asm volatile ("csrr %0, cycle" : "=r"(cyc_num) : );
+	return cyc_num;
+}
+
+static uint32_t getCoreId() {
+	uint32_t id = 0;
+	asm volatile ("csrr %0, mhartid" : "=r"(id) : );
+	return id;
 }
 
 #ifdef __riscv

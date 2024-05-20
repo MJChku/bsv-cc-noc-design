@@ -2,8 +2,6 @@
 static volatile int input_data[8] = {0,1,2,3,4,5,6,7};
 static volatile int buffer_data[8] = {0,0,0,0,0,0,0,0};
 static volatile int flag = 0;
-static volatile int t0_done = 0;
-static volatile int t1_done = 0;
 
 int getchar();
 int putchar(int c);

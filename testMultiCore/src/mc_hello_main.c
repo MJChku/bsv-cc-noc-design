@@ -73,10 +73,14 @@ int core1()
 
 int main( int argc, char *argv[] ) {
 	int coreid = getCoreId();
+    
     if( coreid == 0 ) {
-        return core0();
+        core0();
+        t0_done = 1;
     } else if( coreid == 1 ) {
-        return core1();
+        core1();
+        t1_done = 1;
     }
+    while( !(t0_done && t1_done)){};
     return 0;
 }
