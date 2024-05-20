@@ -8,10 +8,16 @@ typedef Bit#(TLog#(4)) CoreID;
 typedef enum {I, S, M} MSI deriving( Bits, Eq, FShow );
 
 typedef enum {N, Y} YesNo deriving (Bits, Eq, FShow);
+
 typedef struct {
     Vector#(4, MSI) state;
     Vector#(4, YesNo) status;
 } ChState deriving(Bits, Eq);
+
+typedef struct {
+    MSI state;
+    YesNo status;
+} MSIYN deriving(Bits, Eq);
 
 // typedef enum { DataRead, StateUpdate} MType deriving( Bits, Eq, FShow );
 

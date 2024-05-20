@@ -10,7 +10,7 @@ import Ehr::*;
 import Vector::*;
 import CAU::*;
 import CacheTypes::*;
-
+import Assert::*;
 // The types live in MemTypes.bsv
 
 // Notice the asymmetry in this interface, as mentioned in lecture.
@@ -59,7 +59,7 @@ module mkCache32(
     MessageFifo#(6) outMsgQueue,
     Cache32 ifc);
 
-    let debug = False;
+    let debug = True;
     // tag is 19bits, index is 7 bits
     CAU#(7, 19) cau <- mkCAU;
 
@@ -83,13 +83,14 @@ module mkCache32(
     Reg#(MSHRState) mshr <- mkReg(WaitCAUResp);
 
     Reg#(Bit#(32)) count <- mkReg(0);  
+    Reg#(Bit#(1)) reqSent <- mkReg(0);
 
     // (*descending_urgency="handleWaitFill, putFromProc"*)
 
     (*descending_urgency="handleWaitFill, waitCAUResp, processInMsgReq, afterCAUInMsgReq"*)
 
     rule waitCAUResp if (mshr == WaitCAUResp);
-        if(debug) $display("waitCAUResp, cnt %d", count);
+        if(debug) $display("<CoreId %d >waitCAUResp, cnt %d", nth_node, count);
         let curr_req = currReqQ.first;
         ParsedAddress addr = parseAddress(curr_req.addr);
         let curr_index = addr.index;
@@ -124,10 +125,22 @@ module mkCache32(
                             data: tagged Valid unpack(cl.data)
                         }
                     );
+                end else begin
+                    let clAddr = {cl.tag, curr_index};
+                    if(debug) $display("Volunteer write back not M");
+                    outMsgQueue.enq_resp(
+                        CacheMemResp{
+                            fromChild: 1,
+                            core: nth_node,
+                            addr: clAddr,
+                            state: I,
+                            data: tagged Invalid
+                        }
+                    );
                 end 
             end
 
-            if(debug) $display("outMsg enq_req for data %d", nth_node, fshow({curr_tag, curr_index}));
+            if(debug) $display("<CoreId %d>outMsg enq_req for data %d, dst right", nth_node, fshow({curr_tag, curr_index}), resp_.dstMSI);
             outMsgQueue.enq_req(
                 CacheMemReq{
                     fromChild: 1,
@@ -143,11 +156,14 @@ module mkCache32(
     // wait for the fill response from the memory
     // update the cache line metadata, tag and state
     // update the cache line data by issueing a BRAM write req
-    rule afterCAUInMsgReq if( inMsgQueue.first matches tagged Req .m);
+    rule afterCAUInMsgReq if(reqSent == 1 &&& inMsgQueue.first matches tagged Req .m);
+        $display("<CoreId %d >afterCAUInMsgReq", nth_node);
         let resp_ <- cau.resp();
+        reqSent <= 0;
         inMsgQueue.deq;
         if (resp_.hitMiss == Miss) begin
             // my cache doesn't have this cacheline
+            $display("<CoreId %d >afterCAUInMsgReq reply I", nth_node);
             outMsgQueue.enq_resp(
                 CacheMemResp{
                     fromChild: 1,
@@ -159,6 +175,7 @@ module mkCache32(
             );
         end else if (resp_.hitMiss == LdHit) begin
             // my cache has this cacheline
+            $display("<CoreId %d >afterCAUInMsgReq ldhit", nth_node);
             if(resp_.cl matches tagged Valid .cl) begin
                 let index = m.addr[6:0];
                 Cline#(64, 19) newline = ?;
@@ -169,34 +186,37 @@ module mkCache32(
                     index,
                     newline
                 );
-                if(cl.state == M && m.state < cl.state) begin
-                    // need to send writeback request
-                    outMsgQueue.enq_resp(
-                        CacheMemResp{
-                            fromChild: 1,
-                            core: nth_node,
-                            addr: m.addr,
-                            state: m.state,
-                            data: tagged Valid unpack(cl.data)
-                        }
-                    );
-                end else if (cl.state == S && m.state == I) begin
-                    outMsgQueue.enq_resp(
-                        CacheMemResp{
-                            fromChild: 1,
-                            core: nth_node,
-                            addr: m.addr,
-                            state: m.state,
-                            data: tagged Invalid
-                        }
-                    );
-                end  
-            end 
+                Maybe#(CacheLine) data = tagged Invalid;
+                if(cl.state == M) begin
+                    $display("<CoreId %d >afterCAUInMsgReq M dirty data", nth_node);
+                    data = tagged Valid unpack(cl.data);
+                end
+                // need to send writeback request
+                $display("<CoreId %d >afterCAUInMsgReq reply newstate %d, ori state %d, addr ", nth_node, m.state, cl.state, fshow({cl.tag, index}));
+                outMsgQueue.enq_resp(
+                    CacheMemResp{
+                        fromChild: 1,
+                        core: nth_node,
+                        addr: m.addr,
+                        state: m.state,
+                        data: data
+                    }
+                );
+            end else begin
+                $display("<CoreId %d >Error: cl should be valid", nth_node);
+                dynamicAssert(1!=0, "Error: cl should be valid");
+            end
+        end else
+        begin
+            $display("<CoreId %d >Error: not miss or ldhit", nth_node);
+            dynamicAssert(1!=0, "Error: not miss or ldhit");
         end
     endrule 
     
-    rule processInMsgReq if( inMsgQueue.first matches tagged Req .m);
+    rule processInMsgReq if(reqSent == 0 &&& inMsgQueue.first matches tagged Req .m);
         // request for downgrade
+        reqSent <= 1;
+        $display("<CoreId %d >processInMsgReq", nth_node, fshow(m.addr));
         let addr = m.addr; 
         // it's a read, it should hit if the cacheline exists
         let ret <- cau.req(
@@ -218,10 +238,10 @@ module mkCache32(
     // endrule
 
     rule handleWaitFill if (mshr == WaitFillResp &&& inMsgQueue.first matches tagged Resp .m);
-        if(debug) $display("handleWaitFill");
+        if(debug) $display("<CoreId %d >handleWaitFill state %d with addr ", nth_node, m.state, fshow(m.addr));
         LineData resp = ?;
         if (m.data matches tagged Valid .cl) begin
-            if(debug) $display("inMsgQueue resp data ", fshow(cl));
+            $display("inMsgQueue resp data ", fshow(cl));
             resp = cl;
         end
         inMsgQueue.deq;
@@ -239,7 +259,7 @@ module mkCache32(
             // new_state = M;
             // assert(m.state == M);
             if (m.state != M) 
-                $display("Error: m state should == M");
+                $display("<CoreId %d>Error: m state should == M, however %d", nth_node, m.state, fshow(mshr_req.addr), fshow(m.addr), m.fromChild, m.core);
         end
         else begin
             if(debug) $display("enq hitQ");
@@ -266,8 +286,8 @@ module mkCache32(
 
     //        cau_resp -> cau_req needs to be satisfied by the CAU
     // the WaitCAUResp -> putFromProc currReqQ is FIFO which is deq first then enq 
-     method Action putFromProc(CacheReq e) if (cau_upto_date == 1 );
-        if(debug) $display("L1 putFromProc, cnt = %d reqQ depth", count);
+     method Action putFromProc(CacheReq e) if (!inMsgQueue.notEmpty && cau_upto_date == 1);
+        if(debug) $display("<CoreId %d >L1 putFromProc, cnt = %d reqQ depth", nth_node, count);
         // Check if the data is in the cache
         let cau_ret <- cau.req(e);
         cau_upto_date <= cau_ret;
@@ -278,7 +298,7 @@ module mkCache32(
     // want getToProc -> putFromProc
     // but WaitCAUResp will never happen before because mshr read and write; ACTION: remove mshr read
     method ActionValue#(Word) getToProc();
-        if(debug) $display("getToProc, cnt = %d", count);
+        if(debug) $display("<CoreId %d>getToProc, cnt = %d", nth_node, count);
         let resp = hitQ.first;
         hitQ.deq;
         return resp;

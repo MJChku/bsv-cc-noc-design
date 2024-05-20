@@ -11,6 +11,7 @@ HEX32=$(addsuffix .hex,$(ELF32))
 ELF2HEX=../elf2hex
 
 RISCVCC32=riscv64-unknown-elf-gcc -march=rv32i -mabi=ilp32 -static -nostdlib -nostartfiles -mcmodel=medany
+OBJDUMP=riscv64-unknown-elf-objdump 
 
 all: $(HEX32)
 
@@ -26,10 +27,11 @@ mmio32.o: mmio.c
 
 $(BUILDDIR)/%32.hex: $(ELF2HEX)/elf2hex $(SRCDIR)/%.c init32.o mmio32.o mmio.ld
 	mkdir -p $(BUILDDIR)
-	$(RISCVCC32) -O2 -c $(SRCDIR)/$*.c -o intermediate32.o
+	$(RISCVCC32) -O0 -c $(SRCDIR)/$*.c -o intermediate32.o
 	$(RISCVCC32) -o $(BUILDDIR)/$*32 -Tmmio.ld intermediate32.o init32.o mmio32.o
 	$(ELF2HEX)/elf2hex $(BUILDDIR)/$*32 0 16G $(BUILDDIR)/$*32.hex
 	rm intermediate32.o
+	$(OBJDUMP) -d $(BUILDDIR)/$*32 > $(BUILDDIR)/$*32.dump
 
 clean:
 	rm -f intermediate32.o init32.o mmio32.o

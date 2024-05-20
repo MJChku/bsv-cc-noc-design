@@ -1,0 +1,7 @@
+**/build
+**/*.log
+**/*.sched
+**/*.bo
+**/*.ba
+**/*.bkp
+**/*.dump

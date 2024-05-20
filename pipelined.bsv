@@ -6,6 +6,7 @@ import Vector::*;
 import KonataHelper::*;
 import Printf::*;
 import Ehr::*;
+import Assert::*;
 
 typedef struct { Bit#(4) byte_en; Bit#(32) addr; Bit#(32) data; } Mem deriving (Eq, FShow, Bits);
 
@@ -143,7 +144,7 @@ module mkNPipelineFIFO (FIFO#(a)) provisos (Bits#(a, b));
 endmodule
 
 (* synthesize *)
-module mkpipelined(RVIfc);
+module mkpipelined#(Bit#(2) coreId)(RVIfc);
     // Interface with memory and devices
     FIFO#(Mem) toImem <- mkBypassFIFO;
     FIFO#(Mem) fromImem <- mkBypassFIFO;
@@ -198,7 +199,13 @@ module mkpipelined(RVIfc);
         // pc[2] <= pc[2]+4;
         // $display("[Fetch] ", count);
         // Below is the code to support Konata's visualization
-		let iid <- fetch1Konata(lfh, fresh_id, 0);
+        KonataId iid = ?;
+        if (coreId == 0) begin
+    		iid <- fetch1Konata(lfh, fresh_id, 0);
+        end else begin
+            iid <- fetch1Konata(lfh, fresh_id, 1);
+        end
+
         labelKonataLeft(lfh, iid, $format("0x%x: ", pc_fetched));
         let req = Mem {byte_en : 0,
 			   addr : pc_fetched,
@@ -226,6 +233,8 @@ module mkpipelined(RVIfc);
         let rs1_idx = getInstFields(instr).rs1;
         let rs2_idx = getInstFields(instr).rs2;
         let rd_idx = getInstFields(instr).rd;
+
+        let csr = getInstFields(instr).csr;
         // do you need to check if it's valid or uses rs1, rs2?
         // can I assume that if it doesn't use rs1/rs2, it's set to 0 ? 
         // read-after-write hazard
@@ -322,6 +331,39 @@ module mkpipelined(RVIfc);
                     toDmem.enq(req);
                 end
             end
+            else if (isCsrInst(dInst)) begin
+                let func3 = dInst.inst[14:12];
+                let csr = getInstFields(dInst.inst).csr;
+                case (funct3)
+                    fn3_CSRRW: begin
+                        $display("unsupported CSRRW");
+                    end
+                    fn3_CSRRS: begin
+                        // rv1 = rs1
+                        if(rv1 == 0) begin
+                            // csrr
+                            $display("csr", fshow(csr));
+                            case (csr)
+                                csrMhartid: begin
+                                    // read core id
+                                    $display("read core id");
+                                    data = zeroExtend(coreId);
+                                end
+                                csrCycle: begin
+                                    $display("read counter");
+                                    data = zeroExtend(count);
+                                end
+                                default: $display("unsupported CSRRS");
+                            endcase
+                        end 
+                        else begin
+                            $display("unsupported CSRRW");
+                        end 
+                    end
+                    default: $display("unsupported system op");
+                endcase
+                labelKonataLeft(lfh, from_decode.k_id, $format(" (CSR)"));
+            end
             else if (isControlInst(dInst)) begin
                     labelKonataLeft(lfh, from_decode.k_id, $format(" (CTRL)"));
                     data = from_decode.pc + 4;
@@ -332,7 +374,7 @@ module mkpipelined(RVIfc);
             let nextPc = controlResult.nextPC;
             // potentially conflict writes
             let mem_business = MemBusiness { isUnsigned : unpack(isUnsigned), size : size, offset : offset, mmio: mmio};
-            
+            if(debug) $display("[Execute] nextPc", nextPc);
             // redirect
             if (from_decode.ppc != nextPc) begin
                 epoch[0] <= 1-epoch[0];
@@ -400,9 +442,10 @@ module mkpipelined(RVIfc);
         end
         if(debug) $display("[Writeback]", fshow(dInst));
             if (!dInst.legal) begin
-          if (debug) $display("[Writeback] Illegal Inst, Drop and fault: ", fshow(dInst));
+                if (debug) $display("[Writeback] Illegal Inst, Drop and fault: ", fshow(dInst));
                 // TODO: make this pc[2]
-          pc[0] <= 0;	// Fault
+                dynamicAssert(0!=0, "Illegal instruction");
+                pc[0] <= 0;	// Fault
           end
         if (dInst.valid_rd) begin
                 let rd_idx = fields.rd;

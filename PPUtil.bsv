@@ -12,15 +12,23 @@ function Bool myPartition(Addr addr, Bit#(2) nth_node);
     return addr[7:7] == nth_node[0];
 endfunction 
 
-function Maybe#(DirIdxWidth) getDirectoryIdx(Addr addr, Bit#(2) nth_node);
+function Bool check_all_invalid(ChState chs);
+    Bool ans = True;
+    for (Integer i = 0; i < 2; i = i + 1) begin
+        if (chs.state[i] != I)
+            ans = False;
+    end
+    return ans;
+endfunction
+
+function DirIdxWidth getDirectoryIdx(Addr addr, Bit#(2) nth_node);
         // 12:6 7 bits for the cache index 
         // originally 9:2 now the last 2 bits are to different the nodes
         // probably split L2 in this fashion as well.
-        Maybe#(DirIdxWidth) ret = tagged Invalid;
-        if (myPartition(addr, nth_node)) begin
-            ret = tagged Valid addr[6:0];
-        end
-        return ret;
+        // if (myPartition(addr, nth_node)) begin
+        //     $display("ERROR: not my parition");
+        // end
+        return addr[6:0];
 endfunction    
 
 
@@ -62,6 +70,7 @@ function Bool calWaitForOtherCores(CoreID core, CacheMemReq m, ChState chs);
             if(m_id != core && ( 
                 chs.state[m_id] > I
             )) begin
+                // $display("core %d need to wait for core %d because want M, and m_id has ", core, m_id, fshow(chs.state[m_id]));
                 need_to_wait = True;
             end 
         end
@@ -73,6 +82,7 @@ function Bool calWaitForOtherCores(CoreID core, CacheMemReq m, ChState chs);
             if(m_id != core && 
                 chs.state[m_id]==M
             ) begin
+                // $display("core %d need to wait for core %d because I want S, and m_id has ", core, m_id, fshow(chs.state[m_id]));
                 need_to_wait = True;
             end 
         end

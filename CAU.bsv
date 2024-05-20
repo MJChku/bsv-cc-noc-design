@@ -100,12 +100,21 @@ module mkCAU(CAU#(logNLines, tagSize)) provisos (Add#(tagSize, logNLines, 26));
         let index = currReq.index;
         let offset = currReq.offset;
         CAUResp#(4, Cline#(64, tagSize)) resp_ = ?;
+
+       
         if(debug) $display("enq resp in CAU %d ", count);
         if (loadHit) begin
             let clData_ <- clData.portA.response.get();
             resp_.hitMiss = LdHit;
             resp_.ldValue = clData_[offset];
+            
+            Cline#(64, tagSize) cacheline = ?;
+            cacheline.tag = clMeta_.tag;
+            cacheline.state = clMeta_.state;
+            cacheline.data = pack(clData_);
+            resp_.cl = tagged Valid cacheline;
             respQ.enq(resp_); 
+            
         end else 
         if (storeHit) begin
             resp_.hitMiss = StHit;
@@ -201,6 +210,7 @@ module mkCAU(CAU#(logNLines, tagSize)) provisos (Add#(tagSize, logNLines, 26));
     endmethod
 
     method ActionValue#(Bit#(1)) update(Bit#(logNLines) index, Cline#(64, tagSize) newline);
+        $display("update in CAU %d, state %d, addr ", count, newline.state, fshow({newline.tag, index}));
         clData.portA.request.put(BRAMRequestBE{
             writeen: signExtend(1'b1),
             responseOnWrite: False,

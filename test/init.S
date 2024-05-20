@@ -41,7 +41,13 @@ _start:
   li  x30,0
   li  x31,0
 
-  li sp, 0xFFFFFF0
+  csrr a0, mhartid
+  bnez a0, nextstack 
+  li sp, 0xFFFFFF0 // Stack for Processor 0
+nextstack:
+  beqz a0, skip
+  li sp, 0xF000000 // Stack for processor 1
+skip:
 
   call main
 

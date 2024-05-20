@@ -1,8 +1,8 @@
 // PIPELINED SINGLE CORE PROCESSOR WITH 2 LEVEL CACHE
 import RVUtil::*;
 import BRAM::*;
-import pipelined::*;
 import FIFO::*;
+import FIFOF::*;
 import SpecialFIFOs::*;
 import MemTypes::*;
 import CacheInterface::*;
@@ -11,17 +11,30 @@ import Vector::*;
 import Node::*;
 import Router::*;
 import MessageTypes::*;
+import MainMem::*;
 
+(* synthesize *)
 module mktop_pipelined(Empty);
-    // Instantiate the dual ported memory
-    let debug = False;
+    // Instantiate the dual ported memory   
+    MainMem mainMem <- mkMainMem(); 
+    FIFOF#(MainMemReq) memHostReq0 <- mkFIFOF();
+    FIFOF#(MainMemResp) memHostResp0 <- mkFIFOF();
+    FIFOF#(MainMemReq) memHostReq1 <- mkFIFOF();
+    FIFOF#(MainMemResp) memHostResp1 <- mkFIFOF();
+    FIFO#(Bit#(2)) mem_turn <- mkFIFO();
+    Reg#(Bit#(2)) last_turn <- mkReg(0);
+
+    let debug = True;
     BRAM_Configure cfg = defaultValue();
     cfg.loadFormat = tagged Hex "mem.vmh";
     BRAM2PortBE#(Bit#(30), Word, 4) bram <- mkBRAM2ServerBE(cfg);
 
-    // Node cache <- mkCacheInterface();
-    NodeInterface node0 <- mkNode(0);
-    NodeInterface node1 <- mkNode(1);
+    NodeInterface node0 <- mkNode(0, memHostReq0, memHostResp0);
+    NodeInterface node1 <- mkNode(1, memHostReq1, memHostResp1);
+    // Node core
+    let core0 <- mkCore(0, node0);
+    let core1 <- mkCore(1, node1);
+
     // NodeInterface node2 <- mkNode(2);
     // NodeInterface node3 <- mkNode(3);
 
@@ -45,6 +58,18 @@ module mktop_pipelined(Empty);
     // Reg#(Maybe#(Flit)) r2_link1 <- mkReg(tagged Invalid);
     // Reg#(Maybe#(Flit)) r3_link0 <- mkReg(tagged Invalid);
     // Reg#(Maybe#(Flit)) r1_link2 <- mkReg(tagged Invalid);
+
+
+    (*descending_urgency="node0.cacheD.handleWaitFill, core0.requestD"*)
+    (*descending_urgency="node0.cacheD.afterCAUInMsgReq, core0.requestD"*)
+    (*descending_urgency="node0.cacheI.handleWaitFill, core0.requestI"*)
+    (*descending_urgency="node0.cacheI.afterCAUInMsgReq, core0.requestI"*)
+    
+    (*descending_urgency="node1.cacheD.handleWaitFill, core1.requestD"*)
+    (*descending_urgency="node1.cacheD.afterCAUInMsgReq, core1.requestD"*)
+    (*descending_urgency="node1.cacheI.handleWaitFill, core1.requestI"*)
+    (*descending_urgency="node1.cacheI.afterCAUInMsgReq, core1.requestI"*)
+    
 
     rule routerPut;
         if(r1_link3 matches tagged Valid .flit) begin 
@@ -153,97 +178,30 @@ module mktop_pipelined(Empty);
         */
     endrule
 
-    // only node0 is connected to a core
-    RVIfc rv_core <- mkpipelined;
-    FIFO#(Mem) ireq <- mkFIFO;
-    FIFO#(Mem) dreq <- mkFIFO;
-    FIFO#(Mem) mmioreq <- mkFIFO;
-    Reg#(Bit#(32)) cycle_count <- mkReg(0);
-
-    rule tic;
-	    cycle_count <= cycle_count + 1;
-    endrule
-
-    rule requestI;
-        let req <- rv_core.getIReq;
-        if (debug) $display("Get IReq cycle count %d", cycle_count, fshow(req));
-        ireq.enq(req);
-        node0.cacheinterface.sendReqInstr(CacheReq{word_byte: req.byte_en, addr: req.addr, data: req.data});
-    endrule
-
-    rule responseI;
-        let x <- node0.cacheinterface.getRespInstr();
-        let req = ireq.first();
-        ireq.deq();
-        if (debug) $display("Get IResp %d ",  cycle_count, fshow(req), fshow(x));
-        req.data = x;
-        rv_core.getIResp(req);
-    endrule
-
-    rule requestD;
-        let req <- rv_core.getDReq;
-        if (req.byte_en == 0) begin
-            dreq.enq(req);
-        end
-        if (debug) $display("Get DReq", fshow(req));
-        node0.cacheinterface.sendReqData(CacheReq{word_byte: req.byte_en, addr: req.addr, data: req.data});
-    endrule
-
-    // rule requestD;
-    //     let req <- rv_core.getDReq;
-    //     dreq.enq(req);
-    //     if (debug) $display("Get DReq", fshow(req));
-    //     // $display("DATA ",fshow(CacheReq{word_byte: req.byte_en, addr: req.addr, data: req.data}));
-    //     cache.sendReqData(CacheReq{word_byte: req.byte_en, addr: req.addr, data: req.data});
-    // endrule
-
-    rule responseD;
-        let x <- node0.cacheinterface.getRespData();
-        let req = dreq.first();
-        dreq.deq();
-        if (debug) $display("Get IResp ", fshow(req), fshow(x));
-        req.data = x;
-        rv_core.getDResp(req);
-    endrule
-  
-    rule requestMMIO;
-        let req <- rv_core.getMMIOReq;
-        if (debug) $display("Get MMIOReq", fshow(req));
-        if (req.byte_en == 'hf) begin
-            if (req.addr == 'hf000_fff4) begin
-                // Write integer to STDERR
-                        $fwrite(stderr, "%0d", req.data);
-                        $fflush(stderr);
-            end
-        end
-        if (req.addr ==  'hf000_fff0) begin
-                // Writing to STDERR
-                $fwrite(stderr, "%c", req.data[7:0]);
-                $fflush(stderr);
+    rule getMemReq if(memHostReq0.notEmpty || memHostReq1.notEmpty);
+        if (memHostReq0.notEmpty && ( last_turn !=0 || !memHostReq1.notEmpty )) begin
+            mainMem.put(memHostReq0.first);
+            memHostReq0.deq;
+            mem_turn.enq(0);
+            last_turn <= 0;
         end else
-            if (req.addr == 'hf000_fff8) begin
-                $display("RAN CYCLES", cycle_count);
-
-            // Exiting Simulation
-                if (req.data == 0) begin
-                        $fdisplay(stderr, "  [0;32mPASS[0m");
-                end
-                else
-                    begin
-                        $fdisplay(stderr, "  [0;31mFAIL[0m (%0d)", req.data);
-                    end
-                $fflush(stderr);
-                $finish;
-            end
-
-        mmioreq.enq(req);
+        if (memHostReq1.notEmpty  && ( last_turn !=1 || !memHostReq0.notEmpty )) begin
+            mainMem.put(memHostReq1.first);
+            memHostReq1.deq;
+            mem_turn.enq(1);
+            last_turn <= 1;
+        end
     endrule
 
-    rule responseMMIO;
-        let req = mmioreq.first();
-        mmioreq.deq();
-        if (debug) $display("Put MMIOResp", fshow(req));
-        rv_core.getMMIOResp(req);
+    rule putMemResp;
+        let resp_ <- mainMem.get();
+        let turn = mem_turn.first; mem_turn.deq;
+        if(turn == 0) begin
+            memHostResp0.enq(resp_);
+        end else
+        if(turn == 1) begin
+            memHostResp1.enq(resp_);
+        end
     endrule
 
 

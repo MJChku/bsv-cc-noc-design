@@ -159,6 +159,7 @@ module mkRouter#(Bit#(2) nth_node)(Router);
 
             method Action putFlit(Flit flit) if(inputBuffer[prt].notFull);
                 flit.nextDir = getRoutingInfo(nth_node, flit.dest);
+                $display("Router %d: Received flit to %d at port %d, next dir %d", nth_node, flit.dest, prt, flit.nextDir);
                 inputBuffer[prt].enq(flit);
             endmethod
         endinterface;

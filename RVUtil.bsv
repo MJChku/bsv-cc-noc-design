@@ -83,6 +83,12 @@ Bit#(5) op5_JALR    = 5'b11001;
 Bit#(5) op5_JAL     = 5'b11011;
 Bit#(5) op5_SYSTEM  = 5'b11100;
 
+// add CSR
+typedef Bit#(12) CsrIndx;
+CsrIndx csrInstret = 12'hb02;
+CsrIndx csrCycle   = 12'hb00;
+CsrIndx csrMhartid = 12'hf14;
+
 // Func 3 Fields
 // For BRANCH opcode
 Bit#(3) fn3_BEQ  = 3'b000;
@@ -231,6 +237,8 @@ function Bool isLegalInstruction(Bit#(32) inst );
                                                             12'b000100000101: (fields.rs1 == 5'b00000);        // WFI
                                                             default:          False;
                                                         endcase);
+                        fn3_CSRRW: False;
+                        fn3_CSRRS: (fields.rs1 == 5'b00000);
                         default:                                                             False;
                     endcase
         default: False;
@@ -309,6 +317,7 @@ function Bool usesRD(Bit#(32) inst);
             5'b11001: True; // jalr
             5'b00100: True; // srli, srli, srai, srai, slli, slli, ori, sltiu, andi, slti, addi, xori
             5'b00101: True; // auipc
+            5'b11100: True; // csrrs
             default: False;
         endcase;
 endfunction
@@ -321,6 +330,7 @@ function Bool usesRS1(Bit#(32) inst);
                5'b01100: True; // sll, mulh, sltu, mulhu, slt, mulhsu, or, rem, xor, div, and, remu, srl, divu, sra, add, mul, sub
                5'b11001: True; // jalr
                5'b00100: True; // srli, srli, srai, srai, slli, slli, ori, sltiu, andi, slti, addi, xori
+               5'b11100: True; // csrrs
                default: False;
            endcase;
 endfunction
@@ -456,6 +466,12 @@ endfunction
 // endfunction
 
 // Instruction Classes
+function Bool isCsrInst(DecodedInst dInst);
+        let opcode = dInst.inst[6:0];
+        let func3 = dInst.inst[14:12];
+        return (opcode == op_SYSTEM) && (func3 == fn3_CSRRW || func3 == fn3_CSRRS );
+endfunction
+
 function Bool isMemoryInst(DecodedInst dInst);
     return (dInst.inst[6] == 1'b0) && (dInst.inst[4:3] == 2'b00);
 endfunction

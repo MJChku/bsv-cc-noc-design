@@ -36,169 +36,141 @@ Disassembly of section .text.init:
   70:	00000e93          	li	t4,0
   74:	00000f13          	li	t5,0
   78:	00000f93          	li	t6,0
-  7c:	10000137          	lui	sp,0x10000
-  80:	ff010113          	addi	sp,sp,-16 # ffffff0 <_end+0xfffdfe4>
-  84:	0f4010ef          	jal	ra,1178 <main>
-  88:	00000513          	li	a0,0
-  8c:	0b4010ef          	jal	ra,1140 <exit>
-  90:	0000006f          	j	90 <_start+0x90>
+  7c:	f1402573          	csrr	a0,mhartid
+  80:	00051663          	bnez	a0,8c <nextstack>
+  84:	10000137          	lui	sp,0x10000
+  88:	ff010113          	addi	sp,sp,-16 # ffffff0 <_end+0xfffdfe4>
+
+0000008c <nextstack>:
+  8c:	00050463          	beqz	a0,94 <skip>
+  90:	0f000137          	lui	sp,0xf000
+
+00000094 <skip>:
+  94:	058010ef          	jal	ra,10ec <main>
+  98:	00000513          	li	a0,0
+  9c:	0e4010ef          	jal	ra,1180 <exit>
+  a0:	0000006f          	j	a0 <skip+0xc>
 
 Disassembly of section .text:
 
 00001000 <compter_uns>:
-    1000:	00050713          	mv	a4,a0
-    1004:	00000513          	li	a0,0
-    1008:	02070c63          	beqz	a4,1040 <compter_uns+0x40>
-    100c:	01f75693          	srli	a3,a4,0x1f
-    1010:	00d707b3          	add	a5,a4,a3
-    1014:	0017f793          	andi	a5,a5,1
-    1018:	40d787b3          	sub	a5,a5,a3
-    101c:	00a78533          	add	a0,a5,a0
-    1020:	01f55793          	srli	a5,a0,0x1f
-    1024:	00f50533          	add	a0,a0,a5
-    1028:	00e68733          	add	a4,a3,a4
-    102c:	00157513          	andi	a0,a0,1
-    1030:	40175713          	srai	a4,a4,0x1
-    1034:	40f50533          	sub	a0,a0,a5
-    1038:	fc071ae3          	bnez	a4,100c <compter_uns+0xc>
-    103c:	00008067          	ret
-    1040:	00008067          	ret
+    1000:	fd010113          	addi	sp,sp,-48 # effffd0 <_end+0xeffdfc4>
+    1004:	02812623          	sw	s0,44(sp)
+    1008:	03010413          	addi	s0,sp,48
+    100c:	fca42e23          	sw	a0,-36(s0)
+    1010:	fe042623          	sw	zero,-20(s0)
+    1014:	0540006f          	j	1068 <compter_uns+0x68>
+    1018:	fdc42703          	lw	a4,-36(s0)
+    101c:	41f75793          	srai	a5,a4,0x1f
+    1020:	01f7d793          	srli	a5,a5,0x1f
+    1024:	00f70733          	add	a4,a4,a5
+    1028:	00177713          	andi	a4,a4,1
+    102c:	40f707b3          	sub	a5,a4,a5
+    1030:	00078713          	mv	a4,a5
+    1034:	fec42783          	lw	a5,-20(s0)
+    1038:	00f70733          	add	a4,a4,a5
+    103c:	41f75793          	srai	a5,a4,0x1f
+    1040:	01f7d793          	srli	a5,a5,0x1f
+    1044:	00f70733          	add	a4,a4,a5
+    1048:	00177713          	andi	a4,a4,1
+    104c:	40f707b3          	sub	a5,a4,a5
+    1050:	fef42623          	sw	a5,-20(s0)
+    1054:	fdc42783          	lw	a5,-36(s0)
+    1058:	01f7d713          	srli	a4,a5,0x1f
+    105c:	00f707b3          	add	a5,a4,a5
+    1060:	4017d793          	srai	a5,a5,0x1
+    1064:	fcf42e23          	sw	a5,-36(s0)
+    1068:	fdc42783          	lw	a5,-36(s0)
+    106c:	fa0796e3          	bnez	a5,1018 <compter_uns+0x18>
+    1070:	fec42783          	lw	a5,-20(s0)
+    1074:	00078513          	mv	a0,a5
+    1078:	02c12403          	lw	s0,44(sp)
+    107c:	03010113          	addi	sp,sp,48
+    1080:	00008067          	ret
 
-00001044 <thuemorse>:
-    1044:	08a05863          	blez	a0,10d4 <thuemorse+0x90>
-    1048:	ff010113          	addi	sp,sp,-16
-    104c:	00912223          	sw	s1,4(sp)
-    1050:	00000713          	li	a4,0
-    1054:	00000493          	li	s1,0
-    1058:	00812423          	sw	s0,8(sp)
-    105c:	00148493          	addi	s1,s1,1
-    1060:	00050413          	mv	s0,a0
-    1064:	03070513          	addi	a0,a4,48
-    1068:	00112623          	sw	ra,12(sp)
-    106c:	09c000ef          	jal	ra,1108 <putchar>
-    1070:	04940663          	beq	s0,s1,10bc <thuemorse+0x78>
-    1074:	00048793          	mv	a5,s1
-    1078:	00000713          	li	a4,0
-    107c:	01f7d693          	srli	a3,a5,0x1f
-    1080:	00d78533          	add	a0,a5,a3
-    1084:	00157513          	andi	a0,a0,1
-    1088:	40d50533          	sub	a0,a0,a3
-    108c:	00e50533          	add	a0,a0,a4
-    1090:	01f55713          	srli	a4,a0,0x1f
-    1094:	00e50533          	add	a0,a0,a4
-    1098:	00f687b3          	add	a5,a3,a5
-    109c:	00157513          	andi	a0,a0,1
-    10a0:	4017d793          	srai	a5,a5,0x1
-    10a4:	40e50733          	sub	a4,a0,a4
-    10a8:	fc079ae3          	bnez	a5,107c <thuemorse+0x38>
-    10ac:	00148493          	addi	s1,s1,1
-    10b0:	03070513          	addi	a0,a4,48
-    10b4:	054000ef          	jal	ra,1108 <putchar>
-    10b8:	fa941ee3          	bne	s0,s1,1074 <thuemorse+0x30>
-    10bc:	00812403          	lw	s0,8(sp)
-    10c0:	00c12083          	lw	ra,12(sp)
-    10c4:	00412483          	lw	s1,4(sp)
-    10c8:	00a00513          	li	a0,10
-    10cc:	01010113          	addi	sp,sp,16
-    10d0:	0380006f          	j	1108 <putchar>
-    10d4:	00a00513          	li	a0,10
-    10d8:	0300006f          	j	1108 <putchar>
+00001084 <thuemorse>:
+    1084:	fd010113          	addi	sp,sp,-48
+    1088:	02112623          	sw	ra,44(sp)
+    108c:	02812423          	sw	s0,40(sp)
+    1090:	03010413          	addi	s0,sp,48
+    1094:	fca42e23          	sw	a0,-36(s0)
+    1098:	fe042623          	sw	zero,-20(s0)
+    109c:	0280006f          	j	10c4 <thuemorse+0x40>
+    10a0:	fec42503          	lw	a0,-20(s0)
+    10a4:	f5dff0ef          	jal	ra,1000 <compter_uns>
+    10a8:	00050793          	mv	a5,a0
+    10ac:	03078793          	addi	a5,a5,48
+    10b0:	00078513          	mv	a0,a5
+    10b4:	094000ef          	jal	ra,1148 <putchar>
+    10b8:	fec42783          	lw	a5,-20(s0)
+    10bc:	00178793          	addi	a5,a5,1
+    10c0:	fef42623          	sw	a5,-20(s0)
+    10c4:	fec42703          	lw	a4,-20(s0)
+    10c8:	fdc42783          	lw	a5,-36(s0)
+    10cc:	fcf74ae3          	blt	a4,a5,10a0 <thuemorse+0x1c>
+    10d0:	00a00513          	li	a0,10
+    10d4:	074000ef          	jal	ra,1148 <putchar>
+    10d8:	00000013          	nop
+    10dc:	02c12083          	lw	ra,44(sp)
+    10e0:	02812403          	lw	s0,40(sp)
+    10e4:	03010113          	addi	sp,sp,48
+    10e8:	00008067          	ret
 
-000010dc <getchar>:
-    10dc:	ff010113          	addi	sp,sp,-16
-    10e0:	00812623          	sw	s0,12(sp)
-    10e4:	01010413          	addi	s0,sp,16
-    10e8:	00001797          	auipc	a5,0x1
-    10ec:	f1c78793          	addi	a5,a5,-228 # 2004 <GET_ADDR>
-    10f0:	0007a783          	lw	a5,0(a5)
-    10f4:	0007a783          	lw	a5,0(a5)
-    10f8:	00078513          	mv	a0,a5
-    10fc:	00c12403          	lw	s0,12(sp)
-    1100:	01010113          	addi	sp,sp,16
-    1104:	00008067          	ret
+000010ec <main>:
+    10ec:	ff010113          	addi	sp,sp,-16
+    10f0:	00112623          	sw	ra,12(sp)
+    10f4:	00812423          	sw	s0,8(sp)
+    10f8:	01010413          	addi	s0,sp,16
+    10fc:	08000513          	li	a0,128
+    1100:	f85ff0ef          	jal	ra,1084 <thuemorse>
+    1104:	00000793          	li	a5,0
+    1108:	00078513          	mv	a0,a5
+    110c:	00c12083          	lw	ra,12(sp)
+    1110:	00812403          	lw	s0,8(sp)
+    1114:	01010113          	addi	sp,sp,16
+    1118:	00008067          	ret
 
-00001108 <putchar>:
-    1108:	fe010113          	addi	sp,sp,-32
-    110c:	00812e23          	sw	s0,28(sp)
-    1110:	02010413          	addi	s0,sp,32
-    1114:	fea42623          	sw	a0,-20(s0)
-    1118:	00001797          	auipc	a5,0x1
-    111c:	ee878793          	addi	a5,a5,-280 # 2000 <PUT_ADDR>
-    1120:	0007a783          	lw	a5,0(a5)
-    1124:	fec42703          	lw	a4,-20(s0)
-    1128:	00e7a023          	sw	a4,0(a5)
-    112c:	fec42783          	lw	a5,-20(s0)
-    1130:	00078513          	mv	a0,a5
-    1134:	01c12403          	lw	s0,28(sp)
-    1138:	02010113          	addi	sp,sp,32
-    113c:	00008067          	ret
+0000111c <getchar>:
+    111c:	ff010113          	addi	sp,sp,-16
+    1120:	00812623          	sw	s0,12(sp)
+    1124:	01010413          	addi	s0,sp,16
+    1128:	00001797          	auipc	a5,0x1
+    112c:	edc78793          	addi	a5,a5,-292 # 2004 <GET_ADDR>
+    1130:	0007a783          	lw	a5,0(a5)
+    1134:	0007a783          	lw	a5,0(a5)
+    1138:	00078513          	mv	a0,a5
+    113c:	00c12403          	lw	s0,12(sp)
+    1140:	01010113          	addi	sp,sp,16
+    1144:	00008067          	ret
 
-00001140 <exit>:
-    1140:	fe010113          	addi	sp,sp,-32
-    1144:	00812e23          	sw	s0,28(sp)
-    1148:	02010413          	addi	s0,sp,32
-    114c:	fea42623          	sw	a0,-20(s0)
-    1150:	00001797          	auipc	a5,0x1
-    1154:	eb878793          	addi	a5,a5,-328 # 2008 <FINISH_ADDR>
-    1158:	0007a783          	lw	a5,0(a5)
-    115c:	fec42703          	lw	a4,-20(s0)
-    1160:	00e7a023          	sw	a4,0(a5)
-    1164:	fec42783          	lw	a5,-20(s0)
-    1168:	00078513          	mv	a0,a5
-    116c:	01c12403          	lw	s0,28(sp)
-    1170:	02010113          	addi	sp,sp,32
-    1174:	00008067          	ret
+00001148 <putchar>:
+    1148:	fe010113          	addi	sp,sp,-32
+    114c:	00812e23          	sw	s0,28(sp)
+    1150:	02010413          	addi	s0,sp,32
+    1154:	fea42623          	sw	a0,-20(s0)
+    1158:	00001797          	auipc	a5,0x1
+    115c:	ea878793          	addi	a5,a5,-344 # 2000 <PUT_ADDR>
+    1160:	0007a783          	lw	a5,0(a5)
+    1164:	fec42703          	lw	a4,-20(s0)
+    1168:	00e7a023          	sw	a4,0(a5)
+    116c:	fec42783          	lw	a5,-20(s0)
+    1170:	00078513          	mv	a0,a5
+    1174:	01c12403          	lw	s0,28(sp)
+    1178:	02010113          	addi	sp,sp,32
+    117c:	00008067          	ret
 
-Disassembly of section .text.startup:
-
-00001178 <main>:
-    1178:	ff010113          	addi	sp,sp,-16
-    117c:	08000513          	li	a0,128
-    1180:	00112623          	sw	ra,12(sp)
-    1184:	ec1ff0ef          	jal	ra,1044 <thuemorse>
-    1188:	00c12083          	lw	ra,12(sp)
-    118c:	00000513          	li	a0,0
-    1190:	01010113          	addi	sp,sp,16
-    1194:	00008067          	ret
-
-Disassembly of section .sdata:
-
-00002000 <PUT_ADDR>:
-    2000:	fff0                	fsw	fa2,124(a5)
-    2002:	f000                	fsw	fs0,32(s0)
-
-00002004 <GET_ADDR>:
-    2004:	fff4                	fsw	fa3,124(a5)
-    2006:	f000                	fsw	fs0,32(s0)
-
-00002008 <FINISH_ADDR>:
-    2008:	fff8                	fsw	fa4,124(a5)
-    200a:	f000                	fsw	fs0,32(s0)
-
-Disassembly of section .comment:
-
-00000000 <.comment>:
-   0:	3a434347          	fmsub.d	ft6,ft6,ft4,ft7,rmm
-   4:	2820                	fld	fs0,80(s0)
-   6:	2029                	jal	10 <_start+0x10>
-   8:	3031                	jal	fffff814 <_end+0xffffd808>
-   a:	322e                	fld	ft4,232(sp)
-   c:	302e                	fld	ft0,232(sp)
-	...
-
-Disassembly of section .riscv.attributes:
-
-00000000 <.riscv.attributes>:
-   0:	1b41                	addi	s6,s6,-16
-   2:	0000                	unimp
-   4:	7200                	flw	fs0,32(a2)
-   6:	7369                	lui	t1,0xffffa
-   8:	01007663          	bgeu	zero,a6,14 <_start+0x14>
-   c:	0011                	c.nop	4
-   e:	0000                	unimp
-  10:	1004                	addi	s1,sp,32
-  12:	7205                	lui	tp,0xfffe1
-  14:	3376                	fld	ft6,376(sp)
-  16:	6932                	flw	fs2,12(sp)
-  18:	7032                	flw	ft0,44(sp)
-  1a:	0030                	addi	a2,sp,8
+00001180 <exit>:
+    1180:	fe010113          	addi	sp,sp,-32
+    1184:	00812e23          	sw	s0,28(sp)
+    1188:	02010413          	addi	s0,sp,32
+    118c:	fea42623          	sw	a0,-20(s0)
+    1190:	00001797          	auipc	a5,0x1
+    1194:	e7878793          	addi	a5,a5,-392 # 2008 <FINISH_ADDR>
+    1198:	0007a783          	lw	a5,0(a5)
+    119c:	fec42703          	lw	a4,-20(s0)
+    11a0:	00e7a023          	sw	a4,0(a5)
+    11a4:	fec42783          	lw	a5,-20(s0)
+    11a8:	00078513          	mv	a0,a5
+    11ac:	01c12403          	lw	s0,28(sp)
+    11b0:	02010113          	addi	sp,sp,32
+    11b4:	00008067          	ret
